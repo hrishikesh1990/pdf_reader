@@ -1,12 +1,7 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Upload PDF</title>
-    <style>
-        .error { color: red; }
-    </style>
-</head>
-<body>
+{% extends 'pdf_processor/base.html' %}
+{% load static %}
+
+{% block content %}
     <h1>Upload PDF File</h1>
     {% if error %}
         <p class="error">{{ error }}</p>
@@ -16,5 +11,4 @@
         {{ form.as_p }}
         <button type="submit">Upload</button>
     </form>
-</body>
-</html> 
+{% endblock %} 

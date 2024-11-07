@@ -1,0 +1,15 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{% block title %}PDF Processor{% endblock %}</title>
+    <link rel="shortcut icon" type="image/x-icon" href="{% static 'favicon.ico' %}">
+    <style>
+        /* Your existing styles */
+    </style>
+</head>
+<body>
+    {% block content %}
+    {% endblock %}
+</body>
+</html> 
