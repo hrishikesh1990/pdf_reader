@@ -2,6 +2,10 @@
 # exit on error
 set -o errexit
 
+# Create directories if they don't exist
+mkdir -p staticfiles
+mkdir -p static
+
 pip install -r requirements.txt
 
 python manage.py collectstatic --no-input
