@@ -402,16 +402,15 @@ def upload_pdf(request):
                 # Extract text using all methods
                 text_results = PDFTextExtractor.extract_text_all_methods(pdf_file)
                 
-                # Combine all extracted text
-                combined_text = "\n\n".join(text for text in text_results.values() if text)
-                
-                # Extract links using the new extractor
+                # Reset file pointer for link extraction
                 pdf_file.seek(0)
-                all_links = LinkExtractor.extract_all_links(pdf_file, combined_text)
+                
+                # Extract links
+                links = LinkExtractor.extract_all_links(pdf_file, '\n'.join(text_results.values()))
                 
                 return render(request, 'pdf_processor/results.html', {
                     'text_results': text_results,
-                    'links': all_links
+                    'links': links
                 })
             except Exception as e:
                 logging.error(f"Error processing PDF: {str(e)}")

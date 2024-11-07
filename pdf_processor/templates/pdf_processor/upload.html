@@ -2,13 +2,150 @@
 {% load static %}
 
 {% block content %}
-    <h1>Upload PDF File</h1>
-    {% if error %}
-        <p class="error">{{ error }}</p>
-    {% endif %}
-    <form method="post" enctype="multipart/form-data">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit">Upload</button>
-    </form>
+<div class="bg-white shadow rounded-lg p-6">
+    <div class="max-w-xl mx-auto">
+        <div class="text-center mb-8">
+            <h2 class="text-2xl font-bold text-gray-900">Upload PDF File</h2>
+            <p class="mt-2 text-sm text-gray-600">
+                Upload a PDF file to extract links and analyze its content
+            </p>
+        </div>
+
+        {% if error %}
+        <div class="bg-red-50 border-l-4 border-red-400 p-4 mb-6">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-red-700">{{ error }}</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <form method="post" enctype="multipart/form-data" class="space-y-6" id="uploadForm">
+            {% csrf_token %}
+            <div class="flex items-center justify-center w-full">
+                <label for="pdf_file" class="flex flex-col w-full h-32 border-4 border-dashed hover:bg-gray-100 hover:border-gray-300 cursor-pointer">
+                    <div class="flex flex-col items-center justify-center pt-7" id="upload-text">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-gray-400 group-hover:text-gray-600" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/>
+                        </svg>
+                        <p class="pt-1 text-sm tracking-wider text-gray-400 group-hover:text-gray-600">
+                            Select a PDF file
+                        </p>
+                    </div>
+                    <div class="flex flex-col items-center justify-center pt-7 hidden" id="file-selected">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-green-500" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        <p class="pt-1 text-sm tracking-wider text-green-500" id="filename-display">
+                            File selected
+                        </p>
+                    </div>
+                    <input type="file" name="pdf_file" id="pdf_file" class="opacity-0 absolute" accept=".pdf" required />
+                </label>
+            </div>
+
+            <div class="flex items-center justify-center">
+                <button type="submit" id="submit-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline opacity-50 cursor-not-allowed" disabled>
+                    Upload and Process
+                </button>
+                <div class="loading ml-4 text-gray-600 hidden" id="loading-text">
+                    <div class="flex items-center">
+                        <svg class="animate-spin h-5 w-5 mr-3 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Processing... Please wait
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('uploadForm');
+    const fileInput = document.getElementById('pdf_file');
+    const uploadText = document.getElementById('upload-text');
+    const fileSelected = document.getElementById('file-selected');
+    const filenameDisplay = document.getElementById('filename-display');
+    const submitBtn = document.getElementById('submit-btn');
+    const loadingText = document.getElementById('loading-text');
+
+    fileInput.addEventListener('change', function() {
+        if (this.files && this.files[0]) {
+            const file = this.files[0];
+            if (file.type === 'application/pdf') {
+                // Show selected file UI
+                uploadText.classList.add('hidden');
+                fileSelected.classList.remove('hidden');
+                filenameDisplay.textContent = file.name;
+                submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                submitBtn.removeAttribute('disabled');
+            } else {
+                // Reset if not PDF
+                this.value = '';
+                alert('Please select a PDF file');
+            }
+        }
+    });
+
+    form.addEventListener('submit', function() {
+        submitBtn.classList.add('hidden');
+        loadingText.classList.remove('hidden');
+    });
+
+    // Drag and drop support
+    const dropZone = document.querySelector('label[for="pdf_file"]');
+
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults (e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, highlight, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, unhighlight, false);
+    });
+
+    function highlight(e) {
+        dropZone.classList.add('bg-gray-100', 'border-gray-300');
+    }
+
+    function unhighlight(e) {
+        dropZone.classList.remove('bg-gray-100', 'border-gray-300');
+    }
+
+    dropZone.addEventListener('drop', handleDrop, false);
+
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const file = dt.files[0];
+
+        if (file && file.type === 'application/pdf') {
+            fileInput.files = dt.files;
+            uploadText.classList.add('hidden');
+            fileSelected.classList.remove('hidden');
+            filenameDisplay.textContent = file.name;
+            submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            submitBtn.removeAttribute('disabled');
+        } else {
+            alert('Please select a PDF file');
+        }
+    }
+});
+</script>
 {% endblock %} 

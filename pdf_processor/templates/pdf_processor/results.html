@@ -1,38 +1,64 @@
 {% extends 'pdf_processor/base.html' %}
 {% load static %}
+{% load custom_filters %}
 
 {% block content %}
-    <h1>PDF Processing Results</h1>
-    
-    <div class="section">
-        <h2>Extracted Text by Method:</h2>
-        {% for method, text in text_results.items %}
-            <div class="text-method">
-                <div class="method-name">{{ method }}</div>
-                <div class="text-content">
-                    {% if text %}
-                        {{ text }}
-                    {% else %}
-                        <span class="empty-text">No text extracted using this method</span>
-                    {% endif %}
-                </div>
-            </div>
-        {% endfor %}
-    </div>
-
-    <div class="section">
-        <h2>Extracted Links:</h2>
-        {% for link_type, link_list in links.items %}
-            <h3>{{ link_type|title }}:</h3>
-            <ul class="links">
-                {% for link in link_list %}
-                    <li><a href="{{ link }}" target="_blank">{{ link }}</a></li>
-                {% empty %}
-                    <li>No {{ link_type }} found</li>
+<div class="space-y-6">
+    <!-- Links Section -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">Extracted Links</h2>
+        
+        {% for link_type, links in links.items %}
+        {% if links %}
+        <div class="mb-6">
+            <h3 class="text-lg font-medium text-gray-700 mb-2 capitalize">{{ link_type|replace:"_" }}</h3>
+            <ul class="space-y-2">
+                {% for link in links %}
+                <li class="flex items-start">
+                    <svg class="h-6 w-6 text-gray-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                    </svg>
+                    <a href="{{ link }}" target="_blank" class="text-blue-600 hover:text-blue-800 break-all">
+                        {{ link }}
+                    </a>
+                </li>
                 {% endfor %}
             </ul>
+        </div>
+        {% endif %}
         {% endfor %}
+
+        {% if not links %}
+        <div class="text-center py-4">
+            <p class="text-gray-500">No links were found in the PDF.</p>
+        </div>
+        {% endif %}
     </div>
 
-    <a href="{% url 'upload_pdf' %}">Upload Another PDF</a>
+    <!-- Text Content Section -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">Extracted Text</h2>
+        {% if text_results %}
+            {% for method, text in text_results.items %}
+                {% if text %}
+                <div class="mb-6">
+                    <h3 class="text-lg font-medium text-gray-700 mb-2">{{ method|title }}</h3>
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <pre class="whitespace-pre-wrap text-sm text-gray-600">{{ text }}</pre>
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+        {% else %}
+            <p class="text-center text-gray-500 py-4">No text content was extracted.</p>
+        {% endif %}
+    </div>
+
+    <!-- Back Button -->
+    <div class="flex justify-center mt-6">
+        <a href="{% url 'upload_pdf' %}" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline">
+            Upload Another PDF
+        </a>
+    </div>
+</div>
 {% endblock %} 
