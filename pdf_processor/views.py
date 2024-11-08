@@ -647,13 +647,24 @@ class PDFProcessAPIView(APIView):
     def process_pdf_with_ocr(self, pdf_content):
         """Process PDF using OCR"""
         try:
-            # Check if tesseract is installed
-            if not pytesseract.get_tesseract_version():
-                raise Exception("Tesseract is not installed or not in PATH")
+            # Verify Tesseract installation
+            try:
+                tesseract_version = pytesseract.get_tesseract_version()
+                logging.info(f"Tesseract version: {tesseract_version}")
+            except Exception as e:
+                logging.error(f"Tesseract check failed: {str(e)}")
+                # Try to find tesseract binary
+                import subprocess
+                try:
+                    tesseract_path = subprocess.check_output(['which', 'tesseract']).decode().strip()
+                    logging.info(f"Found tesseract at: {tesseract_path}")
+                    pytesseract.pytesseract.tesseract_cmd = tesseract_path
+                except subprocess.CalledProcessError as e:
+                    logging.error(f"Could not find tesseract: {str(e)}")
+                    raise Exception("Tesseract is not installed or not in PATH")
 
             # Create temporary file
             with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_pdf:
-                # Handle both UploadedFile and BytesIO
                 if hasattr(pdf_content, 'read'):
                     if hasattr(pdf_content, 'seek'):
                         pdf_content.seek(0)
@@ -670,12 +681,21 @@ class PDFProcessAPIView(APIView):
             # Process each page with OCR
             text_results = []
             for i, image in enumerate(images):
-                text = pytesseract.image_to_string(image)
-                text_results.append(f"Page {i+1}:\n{text}\n")
+                # Add debugging for image processing
+                logging.info(f"Processing page {i+1}")
+                try:
+                    text = pytesseract.image_to_string(image)
+                    text_results.append(f"Page {i+1}:\n{text}\n")
+                except Exception as e:
+                    logging.error(f"Error processing page {i+1}: {str(e)}")
+                    text_results.append(f"Page {i+1}: Error - {str(e)}\n")
 
             # Clean up
             os.unlink(pdf_path)
             
+            if not text_results:
+                return {'error': 'No text could be extracted from the PDF'}
+                
             return {'OCR': '\n'.join(text_results)}
         except Exception as e:
             logging.error(f"OCR Error: {str(e)}")
