@@ -631,7 +631,15 @@ class PDFProcessAPIView(APIView):
     def process_pdf_directly(self, pdf_content):
         """Process PDF using direct text extraction methods"""
         try:
-            return PDFTextExtractor.extract_text_all_methods(pdf_content)
+            # Handle both UploadedFile and BytesIO
+            if hasattr(pdf_content, 'read'):
+                if hasattr(pdf_content, 'seek'):
+                    pdf_content.seek(0)
+                content = BytesIO(pdf_content.read())
+            else:
+                content = BytesIO(pdf_content)
+
+            return PDFTextExtractor.extract_text_all_methods(content)
         except Exception as e:
             logging.error(f"Direct processing error: {str(e)}")
             return {'error': str(e)}
@@ -639,9 +647,21 @@ class PDFProcessAPIView(APIView):
     def process_pdf_with_ocr(self, pdf_content):
         """Process PDF using OCR"""
         try:
+            # Check if tesseract is installed
+            if not pytesseract.get_tesseract_version():
+                raise Exception("Tesseract is not installed or not in PATH")
+
             # Create temporary file
             with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_pdf:
-                tmp_pdf.write(pdf_content.read())
+                # Handle both UploadedFile and BytesIO
+                if hasattr(pdf_content, 'read'):
+                    if hasattr(pdf_content, 'seek'):
+                        pdf_content.seek(0)
+                    content = pdf_content.read()
+                else:
+                    content = pdf_content
+                    
+                tmp_pdf.write(content)
                 pdf_path = tmp_pdf.name
 
             # Convert PDF to images
@@ -658,13 +678,21 @@ class PDFProcessAPIView(APIView):
             
             return {'OCR': '\n'.join(text_results)}
         except Exception as e:
-            logging.error(f"OCR processing error: {str(e)}")
+            logging.error(f"OCR Error: {str(e)}")
             return {'error': str(e)}
 
     def extract_links(self, pdf_content, text_content):
         """Extract links from PDF"""
         try:
-            return LinkExtractor.extract_all_links(pdf_content, text_content)
+            # Handle both UploadedFile and BytesIO
+            if hasattr(pdf_content, 'read'):
+                if hasattr(pdf_content, 'seek'):
+                    pdf_content.seek(0)
+                content = BytesIO(pdf_content.read())
+            else:
+                content = BytesIO(pdf_content)
+
+            return LinkExtractor.extract_all_links(content, text_content)
         except Exception as e:
             logging.error(f"Link extraction error: {str(e)}")
             return {'error': str(e)}

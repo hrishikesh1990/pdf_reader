@@ -5,7 +5,10 @@ set -o errexit
 # Install system dependencies
 apt-get update && apt-get install -y \
     poppler-utils \
-    tesseract-ocr
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    libtesseract-dev \
+    libleptonica-dev
 
 # Install Python dependencies
 pip install --upgrade pip
