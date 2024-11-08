@@ -21,6 +21,22 @@ from rest_framework.response import Response
 from rest_framework import status
 from .serializers import PDFUrlSerializer, PDFExtractResponseSerializer
 from django.core.files.uploadedfile import InMemoryUploadedFile
+import os
+from PIL import Image
+import tempfile
+from pdf2image import convert_from_path
+
+# Try to import swagger_auto_schema, but don't fail if it's not available
+try:
+    from drf_yasg.utils import swagger_auto_schema
+    SWAGGER_AVAILABLE = True
+except ImportError:
+    SWAGGER_AVAILABLE = False
+    # Create a dummy decorator that does nothing
+    def swagger_auto_schema(*args, **kwargs):
+        def decorator(f):
+            return f
+        return decorator
 
 def extract_links(text):
     # Regular expressions for different types of links
@@ -386,31 +402,87 @@ class LinkExtractor:
 
         return grouped_links
 
+def is_image_file(file):
+    """Check if the file is an image based on its content"""
+    try:
+        Image.open(file)
+        file.seek(0)  # Reset file pointer
+        return True
+    except Exception:
+        file.seek(0)  # Reset file pointer
+        return False
+
+def is_pdf_file(file):
+    """Check if the file is a PDF based on its name or content"""
+    return file.name.lower().endswith('.pdf')
+
+def extract_text_from_image(image_file):
+    """Extract text from image using OCR"""
+    try:
+        # Open the image using PIL
+        image = Image.open(image_file)
+        
+        # Extract text using pytesseract
+        text = pytesseract.image_to_string(image)
+        
+        return {'OCR': text}
+    except Exception as e:
+        logging.error(f"OCR Error: {str(e)}")
+        return {'OCR': f"Error processing image: {str(e)}"}
+
+def process_pdf_with_ocr(pdf_file):
+    """Convert PDF to images and run OCR"""
+    try:
+        # Create a temporary file to save the uploaded PDF
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_pdf:
+            tmp_pdf.write(pdf_file.read())
+            pdf_path = tmp_pdf.name
+
+        # Convert PDF to images
+        images = convert_from_path(pdf_path)
+        
+        # Process each page with OCR
+        text_results = []
+        for i, image in enumerate(images):
+            text = pytesseract.image_to_string(image)
+            text_results.append(f"Page {i+1}:\n{text}\n")
+
+        # Clean up temporary file
+        os.unlink(pdf_path)
+        
+        return {'OCR': '\n'.join(text_results)}
+    except Exception as e:
+        logging.error(f"OCR Error: {str(e)}")
+        return {'OCR': f"Error processing PDF with OCR: {str(e)}"}
+
 def upload_pdf(request):
     if request.method == 'POST':
         form = PDFUploadForm(request.POST, request.FILES)
         if form.is_valid():
             pdf_file = request.FILES['pdf_file']
+            processing_type = form.cleaned_data['processing_type']
             
-            if not pdf_file.name.endswith('.pdf'):
+            if not pdf_file.name.lower().endswith('.pdf'):
                 return render(request, 'pdf_processor/upload.html', {
                     'form': form,
                     'error': 'Please upload a PDF file'
                 })
             
             try:
-                # Extract text using all methods
-                text_results = PDFTextExtractor.extract_text_all_methods(pdf_file)
-                
-                # Reset file pointer for link extraction
-                pdf_file.seek(0)
-                
-                # Extract links
-                links = LinkExtractor.extract_all_links(pdf_file, '\n'.join(text_results.values()))
+                if processing_type == 'direct':
+                    # Process PDF directly
+                    text_results = PDFTextExtractor.extract_text_all_methods(pdf_file)
+                    pdf_file.seek(0)
+                    links = LinkExtractor.extract_all_links(pdf_file, '\n'.join(text_results.values()))
+                else:  # processing_type == 'ocr'
+                    # Process PDF with OCR
+                    text_results = process_pdf_with_ocr(pdf_file)
+                    links = {}  # No link extraction for OCR processing
                 
                 return render(request, 'pdf_processor/results.html', {
                     'text_results': text_results,
-                    'links': links
+                    'links': links,
+                    'processing_type': processing_type
                 })
             except Exception as e:
                 logging.error(f"Error processing PDF: {str(e)}")
@@ -507,3 +579,92 @@ class PDFExtractAPI(APIView):
                 {'error': f'Unexpected error: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+class PDFProcessAPIView(APIView):
+    """API endpoint for processing PDFs"""
+    
+    def post(self, request, *args, **kwargs):
+        """
+        Process a PDF file and extract text using multiple methods
+        """
+        serializer = PDFUrlSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        pdf_url = serializer.validated_data['pdf_url']
+
+        try:
+            # Download the PDF
+            response = requests.get(pdf_url)
+            if response.status_code != 200:
+                return Response({
+                    'error': f'Failed to download PDF. Status code: {response.status_code}'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            pdf_content = BytesIO(response.content)
+
+            # Process PDF directly
+            direct_text = self.process_pdf_directly(pdf_content)
+            
+            # Reset file pointer for link extraction
+            pdf_content.seek(0)
+            links = self.extract_links(pdf_content, '\n'.join(str(v) for v in direct_text.values()))
+            
+            # Reset file pointer for OCR processing
+            pdf_content.seek(0)
+            ocr_text = self.process_pdf_with_ocr(pdf_content)
+
+            result = {
+                'direct_text': direct_text,
+                'ocr_text': ocr_text,
+                'links': links
+            }
+
+            return Response(result, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logging.error(f"Error processing PDF: {str(e)}")
+            return Response({
+                'error': f'Error processing PDF: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def process_pdf_directly(self, pdf_content):
+        """Process PDF using direct text extraction methods"""
+        try:
+            return PDFTextExtractor.extract_text_all_methods(pdf_content)
+        except Exception as e:
+            logging.error(f"Direct processing error: {str(e)}")
+            return {'error': str(e)}
+
+    def process_pdf_with_ocr(self, pdf_content):
+        """Process PDF using OCR"""
+        try:
+            # Create temporary file
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_pdf:
+                tmp_pdf.write(pdf_content.read())
+                pdf_path = tmp_pdf.name
+
+            # Convert PDF to images
+            images = convert_from_path(pdf_path)
+            
+            # Process each page with OCR
+            text_results = []
+            for i, image in enumerate(images):
+                text = pytesseract.image_to_string(image)
+                text_results.append(f"Page {i+1}:\n{text}\n")
+
+            # Clean up
+            os.unlink(pdf_path)
+            
+            return {'OCR': '\n'.join(text_results)}
+        except Exception as e:
+            logging.error(f"OCR processing error: {str(e)}")
+            return {'error': str(e)}
+
+    def extract_links(self, pdf_content, text_content):
+        """Extract links from PDF"""
+        try:
+            return LinkExtractor.extract_all_links(pdf_content, text_content)
+        except Exception as e:
+            logging.error(f"Link extraction error: {str(e)}")
+            return {'error': str(e)}

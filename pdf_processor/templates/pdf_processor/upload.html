@@ -7,7 +7,7 @@
         <div class="text-center mb-8">
             <h2 class="text-2xl font-bold text-gray-900">Upload PDF File</h2>
             <p class="mt-2 text-sm text-gray-600">
-                Upload a PDF file to extract links and analyze its content
+                Upload a PDF file and choose your processing method
             </p>
         </div>
 
@@ -28,7 +28,9 @@
 
         <form method="post" enctype="multipart/form-data" class="space-y-6" id="uploadForm">
             {% csrf_token %}
-            <div class="flex items-center justify-center w-full">
+            
+            <!-- File Upload Section -->
+            <div class="flex items-center justify-center w-full mb-6">
                 <label for="pdf_file" class="flex flex-col w-full h-32 border-4 border-dashed hover:bg-gray-100 hover:border-gray-300 cursor-pointer">
                     <div class="flex flex-col items-center justify-center pt-7" id="upload-text">
                         <svg xmlns="http://www.w3.org/2000/svg" class="w-12 h-12 text-gray-400 group-hover:text-gray-600" viewBox="0 0 20 20" fill="currentColor">
@@ -50,9 +52,32 @@
                 </label>
             </div>
 
+            <!-- Processing Options Section -->
+            <div class="bg-gray-50 p-6 rounded-lg">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Choose Processing Method</h3>
+                <div class="space-y-4">
+                    <label class="flex items-center space-x-3 cursor-pointer">
+                        <input type="radio" name="processing_type" value="direct" 
+                               class="form-radio h-5 w-5 text-blue-600" checked>
+                        <div class="flex flex-col">
+                            <span class="text-gray-700 font-medium">Parse PDF directly</span>
+                            <span class="text-sm text-gray-500">Best for searchable PDFs with selectable text</span>
+                        </div>
+                    </label>
+                    <label class="flex items-center space-x-3 cursor-pointer">
+                        <input type="radio" name="processing_type" value="ocr" 
+                               class="form-radio h-5 w-5 text-blue-600">
+                        <div class="flex flex-col">
+                            <span class="text-gray-700 font-medium">Convert to image and run OCR</span>
+                            <span class="text-sm text-gray-500">Best for scanned documents or images</span>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
             <div class="flex items-center justify-center">
                 <button type="submit" id="submit-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline opacity-50 cursor-not-allowed" disabled>
-                    Upload and Process
+                    Process PDF
                 </button>
                 <div class="loading ml-4 text-gray-600 hidden" id="loading-text">
                     <div class="flex items-center">
@@ -81,18 +106,12 @@ document.addEventListener('DOMContentLoaded', function() {
     fileInput.addEventListener('change', function() {
         if (this.files && this.files[0]) {
             const file = this.files[0];
-            if (file.type === 'application/pdf') {
-                // Show selected file UI
-                uploadText.classList.add('hidden');
-                fileSelected.classList.remove('hidden');
-                filenameDisplay.textContent = file.name;
-                submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-                submitBtn.removeAttribute('disabled');
-            } else {
-                // Reset if not PDF
-                this.value = '';
-                alert('Please select a PDF file');
-            }
+            // Show selected file UI
+            uploadText.classList.add('hidden');
+            fileSelected.classList.remove('hidden');
+            filenameDisplay.textContent = file.name;
+            submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            submitBtn.removeAttribute('disabled');
         }
     });
 
@@ -134,17 +153,12 @@ document.addEventListener('DOMContentLoaded', function() {
     function handleDrop(e) {
         const dt = e.dataTransfer;
         const file = dt.files[0];
-
-        if (file && file.type === 'application/pdf') {
-            fileInput.files = dt.files;
-            uploadText.classList.add('hidden');
-            fileSelected.classList.remove('hidden');
-            filenameDisplay.textContent = file.name;
-            submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-            submitBtn.removeAttribute('disabled');
-        } else {
-            alert('Please select a PDF file');
-        }
+        fileInput.files = dt.files;
+        uploadText.classList.add('hidden');
+        fileSelected.classList.remove('hidden');
+        filenameDisplay.textContent = file.name;
+        submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+        submitBtn.removeAttribute('disabled');
     }
 });
 </script>
