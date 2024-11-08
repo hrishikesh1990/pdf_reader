@@ -2,18 +2,17 @@
 # exit on error
 set -o errexit
 
-# Set environment variables
-export DJANGO_ENV=production
+# Install system dependencies
+apt-get update && apt-get install -y \
+    poppler-utils \
+    tesseract-ocr
 
-# Create directories if they don't exist
-mkdir -p staticfiles
-mkdir -p static
-
-# Ensure static directory has proper permissions
-chmod -R 755 static
-chmod -R 755 staticfiles
-
+# Install Python dependencies
+pip install --upgrade pip
 pip install -r requirements.txt
 
+# Collect static files
 python manage.py collectstatic --no-input
+
+# Run migrations
 python manage.py migrate
