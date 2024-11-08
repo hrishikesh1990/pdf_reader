@@ -2,11 +2,17 @@
 # exit on error
 set -o errexit
 
-# Add Tesseract repository for latest version
-add-apt-repository -y ppa:alex-p/tesseract-ocr5
-
-# Update package list
+# Install Python and pip
 apt-get update
+apt-get install -y python3 python3-pip python3-dev
+
+# Create symlinks for python and pip
+ln -sf /usr/bin/python3 /usr/bin/python
+ln -sf /usr/bin/pip3 /usr/bin/pip
+
+# Verify Python installation
+python --version
+pip --version
 
 # Install system dependencies
 apt-get install -y \
@@ -19,10 +25,6 @@ apt-get install -y \
 
 # Verify Tesseract installation
 tesseract --version
-
-# Set Tesseract path in environment
-echo "export TESSDATA_PREFIX=/usr/share/tesseract-ocr/4.00/tessdata/" >> ~/.bashrc
-export TESSDATA_PREFIX=/usr/share/tesseract-ocr/4.00/tessdata/
 
 # Install Python dependencies
 pip install --upgrade pip
